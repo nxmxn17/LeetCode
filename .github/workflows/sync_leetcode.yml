@@ -5,17 +5,44 @@ on:
   schedule:
     - cron: "0 8 * * 6"
 
+permissions:
+  contents: write
+
 jobs:
-  build:
+  sync:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Sync
+      - uses: actions/checkout@v4
+
+      - name: Sync LeetCode
         uses: joshcai/leetcode-sync@v1.7
         with:
           github-token: ${{ github.token }}
           leetcode-csrf-token: ${{ secrets.LEETCODE_CSRF_TOKEN }}
           leetcode-session: ${{ secrets.LEETCODE_SESSION }}
-          destination-folder: my-folder
+          destination-folder: submissions
           verbose: true
           commit-header: "[LeetCode Sync]"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Organize solutions
+        run: python scripts/organize.py
+
+      - name: Commit organized files
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+          git add .
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Organize LeetCode solutions"
+            git push
+          fi
